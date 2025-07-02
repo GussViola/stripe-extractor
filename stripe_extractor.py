@@ -108,9 +108,9 @@ def extract_customer_info(customers):
 
         # Prepare subscription dates string
         subscription_dates_string = ", ".join(
-            [date for date in subscription_dates if date]) if subscription_dates else "N/A"
+            [date for date in subscription_dates if date]) if subscription_dates else ""
         if subscription_string == "Free":
-            subscription_dates_string = "N/A"
+            subscription_dates_string = ""
 
         customer_data.append({
             'Nome': name,
