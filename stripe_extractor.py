@@ -113,12 +113,12 @@ def extract_customer_info(customers):
             subscription_dates_string = "N/A"
 
         customer_data.append({
-            'name': name,
-            'email': email,
-            'phone': phone,
-            'created_date': created_date,
-            'subscription_date': subscription_dates_string,
-            'active_subscriptions': subscription_string,
+            'Nome': name,
+            'Email': email,
+            'Telefone': phone,
+            'Data de Criação': created_date,
+            'Data de Assinatura': subscription_dates_string,
+            'Assinaturas Ativas': subscription_string,
         })
 
     return customer_data
