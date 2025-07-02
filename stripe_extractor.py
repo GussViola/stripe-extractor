@@ -3,6 +3,7 @@ import csv
 import os
 import sys
 from datetime import datetime
+import time
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -17,7 +18,7 @@ def get_customers_data():
     # Pagination to get all customers
     has_more = True
     starting_after = None
-    
+
     try:
         while has_more:
             params = {"limit": 100}
@@ -32,9 +33,10 @@ def get_customers_data():
             has_more = response.has_more
             if has_more:
                 starting_after = response.data[-1].id
-                
+
     except stripe.error.AuthenticationError:
-        print("\nErro de autenticação: A chave API do Stripe é inválida ou não foi fornecida.")
+        print(
+            "\nErro de autenticação: A chave API do Stripe é inválida ou não foi fornecida.")
         new_key = input("\nPor favor, digite sua chave API do Stripe: ")
         if new_key.strip():
             stripe.api_key = new_key
@@ -64,11 +66,25 @@ def extract_customer_info(customers):
         email = customer.email if customer.email else "Vazio"
         phone = customer.phone if customer.phone else "Vazio"
 
-        # Get active subscriptions
+        # Converter timestamp de criação da conta para data legível
+        created_timestamp = customer.created
+        created_date = datetime.fromtimestamp(created_timestamp).strftime(
+            '%d/%m/%Y') if created_timestamp else "Vazio"
+
+        # Get active subscriptions and their start dates
         active_subscriptions = []
+        subscription_dates = []
+
         if hasattr(customer, 'subscriptions') and customer.subscriptions:
             for sub in customer.subscriptions.data:
                 if sub.status == 'active':
+                    # Get subscription start date
+                    start_date = ""
+                    if hasattr(sub, 'start_date') and sub.start_date:
+                        start_timestamp = sub.start_date
+                        start_date = datetime.fromtimestamp(
+                            start_timestamp).strftime('%d/%m/%Y')
+
                     # Access items data directly if available
                     if hasattr(sub, 'items') and hasattr(sub.items, 'data') and sub.items.data:
                         item = sub.items.data[0]
@@ -77,19 +93,31 @@ def extract_customer_info(customers):
                             plan_name = plan.nickname if hasattr(
                                 plan, 'nickname') and plan.nickname else plan.id
                             active_subscriptions.append(plan_name)
+                            subscription_dates.append(start_date)
                     else:
                         if hasattr(sub, 'plan') and hasattr(sub.plan, 'nickname'):
                             active_subscriptions.append(f"{sub.plan.nickname}")
+                            subscription_dates.append(start_date)
                         else:
                             active_subscriptions.append(
                                 f"Subscription ID: {sub.id} (Plan details unavailable)")
+                            subscription_dates.append(start_date)
+        # Prepare subscription strings
         subscription_string = ", ".join(
             active_subscriptions) if active_subscriptions else "Free"
+
+        # Prepare subscription dates string
+        subscription_dates_string = ", ".join(
+            [date for date in subscription_dates if date]) if subscription_dates else "N/A"
+        if subscription_string == "Free":
+            subscription_dates_string = "N/A"
 
         customer_data.append({
             'name': name,
             'email': email,
             'phone': phone,
+            'created_date': created_date,
+            'subscription_date': subscription_dates_string,
             'active_subscriptions': subscription_string,
         })
 
@@ -106,7 +134,8 @@ def save_to_csv(customer_data, output_file=None):
     os.makedirs('outputs', exist_ok=True)
 
     with open(output_file, 'w', newline='', encoding='utf-8') as csvfile:
-        fieldnames = ['name', 'email', 'phone', 'active_subscriptions']
+        fieldnames = ['Nome', 'Email', 'Telefone', 'Data de Criação',
+                      'Data de Assinatura', 'Assinaturas Ativas']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
         writer.writeheader()
@@ -141,8 +170,8 @@ if __name__ == "__main__":
                 env_file.write(f"STRIPE_API_KEY={stripe.api_key}")
     else:
         stripe.api_key = api_key
-        
+
     # Mesmo se tivermos uma chave do arquivo .env, ela pode ser inválida
     # O método get_customers_data() vai lidar com erros de autenticação
-    
+
     main()
