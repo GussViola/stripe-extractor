@@ -152,23 +152,79 @@ fi
 # Criar diretório de saída
 mkdir -p outputs
 
+# Determinar comando Python a ser usado (python3 para Ubuntu/Linux, python para outros)
+if [ "$SYSTEM" = "Linux" ]; then
+    PYTHON_CMD="python3"
+else
+    PYTHON_CMD="python"
+fi
+
+# Criar um script de ativação para facilitar o uso
+echo "Criando script de ativação..."
+
+cat > activate.sh << 'EOF'
+#!/bin/bash
+
+# Detectar sistema operacional
+if [ "$(uname -s)" = "Linux" ]; then
+    SYSTEM="Linux"
+elif [ "$(uname -s)" = "Darwin" ]; then
+    SYSTEM="macOS"
+elif [ "$OSTYPE" = "msys" ] || [ "$OSTYPE" = "cygwin" ]; then
+    SYSTEM="Windows"
+fi
+
+# Ativar o ambiente virtual
+if [ "$SYSTEM" = "Windows" ]; then
+    . venv/Scripts/activate || source venv/Scripts/activate
+else
+    . venv/bin/activate || source venv/bin/activate
+fi
+
+# Determinar o comando Python
+if [ "$SYSTEM" = "Linux" ]; then
+    PYTHON_CMD="python3"
+else
+    PYTHON_CMD="python"
+fi
+
+echo "Ambiente virtual ativado! Execute o extractor com: $PYTHON_CMD stripe_extractor.py"
+echo "Para sair do ambiente virtual depois, execute: deactivate"
+EOF
+
+chmod +x activate.sh
+
 # Desativa o ambiente virtual para evitar confusão
 deactivate 2>/dev/null || true
 
 echo "=== Instalação concluída! ==="
 echo "Para usar o Stripe Extractor:"
 echo ""
+echo "COMANDO RÁPIDO (recomendado):"
+echo "  source ./activate.sh"
+echo ""
+echo "O script acima irá ativar o ambiente virtual automaticamente e mostrar como executar o extractor."
+echo ""
+echo "Ou, se preferir, você pode ativar manualmente:"
 echo "1. Ative o ambiente virtual com um destes comandos:"
 echo "   - No Linux/macOS: source venv/bin/activate"
 echo "   - No Windows CMD: venv\Scripts\activate.bat"
 echo "   - No Windows PowerShell: .\venv\Scripts\Activate.ps1"
 echo "   - No Git Bash/WSL: source venv/Scripts/activate"
 echo ""
-echo "2. Execute o script: python stripe_extractor.py"
+if [ "$SYSTEM" = "Linux" ]; then
+    echo "2. Execute o script: python3 stripe_extractor.py"
+else
+    echo "2. Execute o script: python stripe_extractor.py"
+fi
 echo ""
 echo "IMPORTANTE: Você DEVE ativar o ambiente virtual antes de executar o script,"
 echo "           caso contrário, receberá erro de módulo não encontrado."
 
 echo ""
-echo "Para executar tudo em uma única linha (Linux/macOS):"
-echo "source venv/bin/activate && python stripe_extractor.py"
+echo "DICA: Para ativar o ambiente e executar o extractor imediatamente, use:"
+if [ "$SYSTEM" = "Linux" ]; then
+    echo "source ./activate.sh && python3 stripe_extractor.py"
+else
+    echo "source ./activate.sh && python stripe_extractor.py"
+fi
