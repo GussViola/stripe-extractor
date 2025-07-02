@@ -1,12 +1,13 @@
 import stripe
 import csv
 import os
+import sys
 from datetime import datetime
 from dotenv import load_dotenv
 
 load_dotenv()
 
-stripe.api_key = os.getenv('STRIPE_API_KEY')
+# Carregamos a chave API mas ainda não validamos
 
 
 def get_customers_data():
@@ -16,20 +17,39 @@ def get_customers_data():
     # Pagination to get all customers
     has_more = True
     starting_after = None
+    
+    try:
+        while has_more:
+            params = {"limit": 100}
+            if starting_after:
+                params["starting_after"] = starting_after
 
-    while has_more:
-        params = {"limit": 100}
-        if starting_after:
-            params["starting_after"] = starting_after
+            # Get customer data with subscriptions expanded
+            response = stripe.Customer.list(
+                **params, expand=["data.subscriptions"])
 
-        # Get customer data with subscriptions expanded
-        response = stripe.Customer.list(
-            **params, expand=["data.subscriptions"])
-
-        customers.extend(response.data)
-        has_more = response.has_more
-        if has_more:
-            starting_after = response.data[-1].id
+            customers.extend(response.data)
+            has_more = response.has_more
+            if has_more:
+                starting_after = response.data[-1].id
+                
+    except stripe.error.AuthenticationError:
+        print("\nErro de autenticação: A chave API do Stripe é inválida ou não foi fornecida.")
+        new_key = input("\nPor favor, digite sua chave API do Stripe: ")
+        if new_key.strip():
+            stripe.api_key = new_key
+            # Salvar a nova chave no arquivo .env
+            with open('.env', 'w') as env_file:
+                env_file.write(f"STRIPE_API_KEY={new_key}")
+            print("Chave API salva no arquivo .env. Tentando novamente...\n")
+            # Tentar novamente com a nova chave
+            return get_customers_data()
+        else:
+            print("Nenhuma chave API fornecida. Encerrando.")
+            sys.exit(1)
+    except Exception as e:
+        print(f"\nErro ao buscar dados: {str(e)}")
+        sys.exit(1)
 
     return customers
 
@@ -111,13 +131,18 @@ def main():
 
 
 if __name__ == "__main__":
-    # You can set your API key as an environment variable before running
-    # or replace the api_key value in the script
-    if not stripe.api_key:
-        api_key = os.environ.get('STRIPE_API_KEY')
-        if not api_key:
-            stripe.api_key = input("Please enter your Stripe API key: ")
-        else:
-            stripe.api_key = api_key
-
+    # Verificar se temos uma chave API
+    api_key = os.environ.get('STRIPE_API_KEY')
+    if not api_key:
+        stripe.api_key = input("Por favor, digite sua chave API do Stripe: ")
+        # Salvar a chave no arquivo .env para uso futuro
+        if stripe.api_key:
+            with open('.env', 'w') as env_file:
+                env_file.write(f"STRIPE_API_KEY={stripe.api_key}")
+    else:
+        stripe.api_key = api_key
+        
+    # Mesmo se tivermos uma chave do arquivo .env, ela pode ser inválida
+    # O método get_customers_data() vai lidar com erros de autenticação
+    
     main()

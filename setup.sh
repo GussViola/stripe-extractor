@@ -32,12 +32,13 @@ if ! command -v python3 > /dev/null 2>&1; then
         # Para distribuições baseadas em Debian/Ubuntu
         if command -v apt > /dev/null 2>&1; then
             sudo apt update
-            sudo apt install -y python3 python3-pip
+            sudo apt install -y python3 python3-pip python3-venv python3.12-venv || sudo apt install -y python3 python3-pip python3-venv
+            echo "Instalado pacote python3-venv necessário para ambientes virtuais no Ubuntu/Debian"
         # Para distribuições baseadas em RHEL/CentOS/Fedora
         elif command -v dnf > /dev/null 2>&1; then
-            sudo dnf install -y python3 python3-pip
+            sudo dnf install -y python3 python3-pip python3-virtualenv
         elif command -v yum > /dev/null 2>&1; then
-            sudo yum install -y python3 python3-pip
+            sudo yum install -y python3 python3-pip python3-virtualenv
         else
             echo "Não foi possível identificar o gerenciador de pacotes. Por favor, instale Python3 manualmente."
             exit 1
@@ -86,7 +87,45 @@ pip3 --version
 
 # Criar ambiente virtual
 echo "Criando ambiente virtual..."
+
+# Tenta criar o ambiente virtual e verifica se houve erro
 python3 -m venv venv
+if [ ! -d "venv/bin" ] && [ ! -d "venv/Scripts" ]; then
+    echo "Erro ao criar ambiente virtual. Tentando instalar pacotes adicionais..."
+    
+    if [ "$SYSTEM" = "Linux" ]; then
+        if command -v apt > /dev/null 2>&1; then
+            echo "Instalando python3-venv..."
+            sudo apt update
+            sudo apt install -y python3-venv
+            
+            # Tenta identificar a versão do Python em uso
+            PY_VERSION=$(python3 --version 2>&1 | cut -d" " -f2 | cut -d"." -f1-2)
+            if [ -n "$PY_VERSION" ]; then
+                echo "Instalando python${PY_VERSION}-venv..."
+                sudo apt install -y python${PY_VERSION}-venv || true
+            fi
+            
+            # Tenta novamente criar o ambiente virtual
+            echo "Tentando criar ambiente virtual novamente..."
+            python3 -m venv venv
+            
+            if [ ! -d "venv/bin" ]; then
+                echo "Falha na criação do ambiente virtual. Por favor, instale o pacote manualmente:"
+                echo "sudo apt install python3-venv"
+                exit 1
+            fi
+        fi
+    fi
+fi
+
+# Verificar se a criação do ambiente virtual foi bem-sucedida
+if [ -d "venv/bin" ] || [ -d "venv/Scripts" ]; then
+    echo "Ambiente virtual criado com sucesso."
+else
+    echo "Falha ao criar ambiente virtual. Por favor, instale o pacote python3-venv manualmente."
+    exit 1
+fi
 
 # Ativar ambiente virtual
 echo "Ativando ambiente virtual..."
