@@ -84,7 +84,7 @@ def extract_customer_info(customers):
                             active_subscriptions.append(
                                 f"Subscription ID: {sub.id} (Plan details unavailable)")
         subscription_string = ", ".join(
-            active_subscriptions) if active_subscriptions else "Vazio"
+            active_subscriptions) if active_subscriptions else "Free"
 
         customer_data.append({
             'name': name,
